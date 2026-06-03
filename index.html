@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>赛马比分测算</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="赛马测算">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#6c5ce7">
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:#f5f6fa;color:#2d3436;min-height:100vh;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  -webkit-tap-highlight-color:transparent;
+}
+.container{max-width:800px;margin:0 auto;padding:16px}
+h1{font-size:22px;font-weight:700;background:linear-gradient(135deg,#6c5ce7,#a29bfe);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.subtitle{color:#636e72;font-size:13px;margin-bottom:20px}
+
+/* ── Upload ── */
+.upload-area{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.upload-card{
+  background:#fff;border:2px dashed #dfe6e9;border-radius:14px;
+  padding:24px 16px;text-align:center;cursor:pointer;transition:all .2s;
+  -webkit-tap-highlight-color:transparent;
+}
+.upload-card:active{transform:scale(.97)}
+.upload-card.loaded{border-color:#00b894;border-style:solid;background:#f0fff4}
+.upload-card .icon{font-size:32px;margin-bottom:6px}
+.upload-card .label{font-weight:600;font-size:15px}
+.upload-card .hint{color:#b2bec3;font-size:12px;margin-top:3px}
+.upload-card .filename{color:#00b894;font-size:12px;margin-top:3px;font-weight:600;word-break:break-all}
+.upload-card input{display:none}
+
+/* ── Buttons ── */
+.actions{display:flex;gap:8px;margin-bottom:20px;align-items:center;flex-wrap:wrap}
+button{
+  padding:12px 20px;border:none;border-radius:12px;
+  font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;
+  min-height:44px;-webkit-tap-highlight-color:transparent;
+}
+button:active{transform:scale(.95)}
+.btn-compare{background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;flex:1}
+.btn-reset{background:#dfe6e9;color:#636e72}
+.btn-export{background:#00b894;color:#fff}
+.btn-export:disabled,.btn-compare:disabled{opacity:.5}
+
+.total-score-box{
+  background:linear-gradient(135deg,#6c5ce7,#a29bfe);color:#fff;
+  border-radius:14px;padding:12px 20px;text-align:center;margin-left:auto;
+}
+.total-score-box .big{font-size:32px;font-weight:900}
+.total-score-box .sub{font-size:12px;opacity:.85}
+
+/* ── Summary ── */
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}
+.summary-card{background:#fff;border-radius:10px;padding:12px 8px;text-align:center}
+.summary-card .num{font-size:24px;font-weight:800}
+.summary-card .txt{font-size:11px;color:#636e72;margin-top:2px}
+.sc-100 .num{color:#fdcb6e}.sc-200 .num{color:#e17055}.sc-300 .num{color:#d63031}.sc-500 .num{color:#6c5ce7}
+
+/* ── Table ── */
+.section-title{font-size:15px;font-weight:700;margin:20px 0 6px;display:flex;align-items:center;gap:6px}
+.section-title .count{font-weight:400;font-size:12px;color:#636e72}
+.section-desc{font-size:12px;color:#636e72;margin-bottom:6px}
+.table-wrap{
+  background:#fff;border-radius:14px;overflow-x:auto;
+  box-shadow:0 2px 8px rgba(0,0,0,.04);margin-bottom:6px;
+  -webkit-overflow-scrolling:touch;
+}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:700px}
+thead{background:#2d3436;color:#fff;position:sticky;top:0}
+th{padding:10px 8px;text-align:left;font-weight:600;white-space:nowrap}
+td{padding:8px;border-bottom:1px solid #f1f2f6}
+tr:active td{background:#f0eeff}
+.product-img img{width:36px;height:36px;object-fit:cover;border-radius:6px;background:#f1f2f6;display:block}
+.product-id{font-family:monospace;font-size:11px}
+.product-id a{color:#6c5ce7;text-decoration:none}
+.increase{font-weight:700;font-size:12px}
+.increase.up{color:#00b894}.increase.down{color:#d63031}
+.profit-rate{font-weight:600;font-size:12px}
+.profit-rate.good{color:#00b894}.profit-rate.bad{color:#d63031}
+.score-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-weight:700;font-size:12px}
+.score-100{background:#fff8e1;color:#f39c12}.score-200{background:#ffeaa7;color:#e17055}
+.score-300{background:#fab1a0;color:#d63031}.score-500{background:#dfe6e9;color:#6c5ce7}
+.hope-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-weight:600;font-size:11px}
+.hope-yes{background:#e8f5e9;color:#2e7d32}.hope-maybe{background:#fff3e0;color:#e65100}
+.empty{text-align:center;padding:40px 16px;color:#b2bec3;font-size:14px}
+.toast{
+  position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+  background:#2d3436;color:#fff;padding:10px 24px;border-radius:20px;
+  font-size:13px;z-index:999;transition:opacity .3s;opacity:0;pointer-events:none;
+}
+.toast.show{opacity:1}
+.pwa-hint{
+  text-align:center;padding:8px;background:#6c5ce7;color:#fff;font-size:12px;
+  display:none;cursor:pointer;
+}
+
+@media(max-width:600px){
+  .container{padding:12px}
+  .upload-area{grid-template-columns:1fr;gap:10px}
+  .upload-card{padding:20px 14px}
+  .summary{grid-template-columns:repeat(2,1fr)}
+  .actions{gap:6px}
+  .actions button{font-size:13px;padding:10px 14px}
+  .total-score-box{padding:10px 14px;margin-left:0}
+  .total-score-box .big{font-size:26px}
+  h1{font-size:20px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>🐎 赛马比分测算</h1>
+<p class="subtitle">上传上月和本月Excel → 自动算增量、打分、预估潜力</p>
+
+<div class="upload-area">
+<div class="upload-card" id="card1" onclick="document.getElementById('file1').click()">
+<div class="icon">📅</div><div class="label">上月报表</div>
+<div class="hint">点击选择 Excel</div>
+<div class="filename" id="name1"></div>
+<input type="file" id="file1" accept=".xlsx,.xls" onchange="loadFile(1,this)">
+</div>
+<div class="upload-card" id="card2" onclick="document.getElementById('file2').click()">
+<div class="icon">📅</div><div class="label">本月报表</div>
+<div class="hint">点击选择 Excel</div>
+<div class="filename" id="name2"></div>
+<input type="file" id="file2" accept=".xlsx,.xls" onchange="loadFile(2,this)">
+</div>
+</div>
+
+<div class="actions">
+<button class="btn-compare" id="btnCompare" disabled onclick="go()">🔍 开始测算</button>
+<button class="btn-reset" onclick="resetAll()">🔄 重置</button>
+<button class="btn-export" id="btnExport" disabled onclick="exportCSV()">📥 导出</button>
+<div class="total-score-box" id="totalScoreBox" style="display:none"><div class="sub">总分</div><div class="big" id="totalScore">0</div></div>
+</div>
+
+<div class="summary" id="summary" style="display:none"></div>
+<div id="tableWrap"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js')}
+
+function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2000)}
+
+var data1=null,data2=null,results=[],file2Days=0,monthTotalDays=0;
+
+['card1','card2'].forEach(function(id){
+  var c=document.getElementById(id);
+  c.addEventListener('dragover',function(e){e.preventDefault();c.style.borderColor='#6c5ce7'});
+  c.addEventListener('dragleave',function(){c.style.borderColor=''});
+  c.addEventListener('drop',function(e){e.preventDefault();c.style.borderColor='';var f=e.dataTransfer.files[0];if(f)process(id==='card1'?1:2,f)});
+});
+
+function loadFile(idx,input){var f=input.files[0];if(f)process(idx,f)}
+
+function parseFilenameDays(fname){
+  var m=fname.match(/(\d{4})-(\d{2})-(\d{2})_(\d{4})-(\d{2})-(\d{2})/);
+  if(!m)return{days:0,monthDays:0};
+  var y1=+m[1],m1=+m[2],d1=+m[3],y2=+m[4],m2=+m[5],d2=+m[6];
+  var days=Math.round((new Date(y2,m2-1,d2)-new Date(y1,m1-1,d1))/86400000)+1;
+  var md=new Date(y2,m2,0).getDate();
+  return{days:days,monthDays:md};
+}
+
+function process(idx,file){
+  var r=new FileReader();
+  r.onload=function(e){
+    try{
+      var wb=XLSX.read(e.target.result,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var json=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(json.length<2){toast('表格为空');return}
+      var h=json[0];
+      var idCol=fc(h,['商品ID']);
+      var amtCol=fc(h,['净销售额(支付)','净销售额（支付）']);
+      var imgCol=fc(h,['商品头图']);
+      var nmCol=fc(h,['商品']);
+      var prCol=fc(h,['利润率(支付预估)','利润率（支付预估）']);
+      if(idCol===-1){toast('未找到「商品ID」列');return}
+      if(amtCol===-1){toast('未找到「净销售额」列');return}
+
+      var map={};
+      for(var i=1;i<json.length;i++){
+        var row=json[i];
+        var id=String(row[idCol]||'').trim();
+        if(!id)continue;
+        var prRaw=prCol!==-1?String(row[prCol]||''):'';
+        map[id]={
+          id:id,amount:parseFloat(row[amtCol])||0,
+          img:imgCol!==-1?String(row[imgCol]||'').trim():'',
+          name:nmCol!==-1?String(row[nmCol]||'').trim():'',
+          profit:ppr(prRaw),profitRaw:prRaw
+        };
+      }
+      if(idx===1){data1=map;document.getElementById('name1').textContent='✅ '+file.name+' ('+Object.keys(map).length+'个)';document.getElementById('card1').classList.add('loaded')}
+      else{
+        data2=map;
+        var info=parseFilenameDays(file.name);
+        file2Days=info.days;monthTotalDays=info.monthDays;
+        var extra=file2Days?' · '+file2Days+'天→全月'+monthTotalDays+'天':'';
+        document.getElementById('name2').textContent='✅ '+file.name+' ('+Object.keys(map).length+'个)'+extra;
+        document.getElementById('card2').classList.add('loaded');
+        if(file2Days)toast('已识别 '+file2Days+' 天数据，全月 '+monthTotalDays+' 天');
+      }
+      document.getElementById('btnCompare').disabled=!(data1&&data2);
+    }catch(err){toast('读取失败: '+err.message)}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function fc(headers,names){
+  for(var i=0;i<names.length;i++){var idx=headers.findIndex(function(h){return String(h||'').trim()===names[i]});if(idx!==-1)return idx}
+  return -1;
+}
+function ppr(raw){if(!raw)return null;var n=parseFloat(String(raw).replace(/%/g,'').trim());return isNaN(n)?null:n}
+function sc(v){if(v>=50000)return 500;if(v>=20000)return 300;if(v>=10000)return 200;if(v>=5000)return 100;return 0}
+function scl(v){if(v>=50000)return{score:500,label:'500分',threshold:50000};if(v>=20000)return{score:300,label:'300分',threshold:20000};if(v>=10000)return{score:200,label:'200分',threshold:10000};if(v>=5000)return{score:100,label:'100分',threshold:5000};return null}
+
+function go(){
+  if(!data1||!data2){toast('请先上传两份报表');return}
+  try{
+    results=[];
+    var ids=Object.keys(Object.assign({},data1,data2));
+    for(var i=0;i<ids.length;i++){
+      var id=ids[i];
+      var prev=data1[id]||{amount:0,img:'',name:'',profit:null};
+      var curr=data2[id]||{amount:0,img:'',name:'',profit:null};
+      var inc=curr.amount-prev.amount;
+      var s=sc(inc);
+      var daily=file2Days>0?curr.amount/file2Days:0;
+      var proj=daily*monthTotalDays;
+      results.push({
+        id:id,name:curr.name||prev.name,img:curr.img||prev.img,
+        prevAmount:prev.amount,currAmount:curr.amount,increase:inc,score:s,
+        profit:curr.profit,dailyAvg:daily,projected:proj,
+        projectedInc:proj-prev.amount,hope:scl(proj-prev.amount)
+      });
+    }
+    results.sort(function(a,b){return b.score-a.score||b.increase-a.increase});
+    render();
+    toast('测算完成！');
+  }catch(e){toast('出错: '+e.message);console.error(e)}
+}
+
+function render(){
+  var MIN_P=3;
+  var scored=results.filter(function(r){return r.score>=100});
+  var qualified=scored.filter(function(r){return r.profit!==null&&r.profit>MIN_P});
+  var unqualified=scored.filter(function(r){return r.profit===null||r.profit<=MIN_P});
+
+  var total=0;for(var i=0;i<qualified.length;i++)total+=qualified[i].score;
+  document.getElementById('totalScoreBox').style.display='block';
+  document.getElementById('totalScore').textContent=total;
+
+  var cnt={100:0,200:0,300:0,500:0};
+  for(var i=0;i<scored.length;i++)cnt[scored[i].score]++;
+  document.getElementById('summary').style.display='grid';
+  document.getElementById('summary').innerHTML=
+    '<div class="summary-card sc-100"><div class="num">'+cnt[100]+'</div><div class="txt">⭐100分 ≥5千</div></div>'+
+    '<div class="summary-card sc-200"><div class="num">'+cnt[200]+'</div><div class="txt">⭐200分 ≥1万</div></div>'+
+    '<div class="summary-card sc-300"><div class="num">'+cnt[300]+'</div><div class="txt">⭐300分 ≥2万</div></div>'+
+    '<div class="summary-card sc-500"><div class="num">'+cnt[500]+'</div><div class="txt">🏆500分 ≥5万</div></div>';
+
+  document.getElementById('btnExport').disabled=qualified.length===0;
+
+  var html='';
+  if(qualified.length>0){
+    html+='<div class="section-title" style="color:#00b894">✅ 计入分数（利润率>3%）<span class="count">'+qualified.length+'个</span></div>';
+    html+=buildTable(qualified,false);
+  }
+  if(unqualified.length>0){
+    html+='<div class="section-title" style="color:#e17055">⚠️ 不计入（利润率≤3%）<span class="count">'+unqualified.length+'个</span></div>';
+    html+=buildTable(unqualified,false);
+  }
+  if(scored.length===0)html='<div class="empty">没有增量≥¥5,000 的商品</div>';
+
+  if(file2Days>0&&monthTotalDays>0){
+    var hopeList=results.filter(function(r){return r.score<100&&r.profit!==null&&r.profit>MIN_P});
+    hopeList.sort(function(a,b){return b.projectedInc-a.projectedInc});
+    if(hopeList.length>0){
+      var hasHope=hopeList.filter(function(r){return r.hope!==null});
+      html+='<div class="section-title" style="color:#6c5ce7;margin-top:28px">🔮 待优化链接 <span class="count">'+hopeList.length+'个，'+hasHope.length+'个有望拿分</span></div>';
+      html+='<div class="section-desc">日均×'+monthTotalDays+'天=预估全月。优化后可冲分。</div>';
+      html+=buildTable(hopeList,true);
+    }
+  }
+  document.getElementById('tableWrap').innerHTML=html;
+}
+
+function buildTable(rows,isHope){
+  var t='<div class="table-wrap"><table><thead><tr>';
+  t+='<th>图</th><th>ID</th><th>名称</th><th>上月</th><th>本月</th><th>增量</th>';
+  if(isHope){t+='<th>日均</th><th>预估月</th><th>预估增</th><th>有望</th>'}
+  t+='<th>利率</th><th>评分</th></tr></thead><tbody>';
+  for(var i=0;i<rows.length;i++)t+=rowHtml(rows[i],isHope);
+  t+='</tbody></table></div>';
+  return t;
+}
+
+function rowHtml(r,isHope){
+  var cls=r.increase>0?'up':'down';
+  var sign=r.increase>0?'+':'';
+  var img=r.img?'<img src="'+esc(r.img)+'" onerror="this.style.display=\'none\'">':'';
+  var url='https://detail.tmall.com/item.htm?id='+r.id;
+  var prCls=(r.profit||0)>3?'good':'bad';
+  var prDisp=r.profit!==null?r.profit.toFixed(1)+'%':'—';
+  var scoreHtml=r.score>=100?'<span class="score-badge score-'+r.score+'">'+r.score+'分</span>':'—';
+
+  var row='<tr>'+
+    '<td class="product-img">'+img+'</td>'+
+    '<td class="product-id"><a href="'+url+'" target="_blank">'+esc(r.id)+'</a></td>'+
+    '<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(r.name)+'">'+esc(r.name)+'</td>'+
+    '<td>¥'+r.prevAmount.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td>'+
+    '<td>¥'+r.currAmount.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td>'+
+    '<td class="increase '+cls+'">'+sign+'¥'+Math.abs(r.increase).toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td>';
+
+  if(isHope){
+    var hl=r.hope?r.hope.label:'—';
+    var hs=r.hope?r.hope.score:0;
+    var hc=hs>=200?'hope-yes':(hs>=100?'hope-maybe':'');
+    row+='<td>¥'+r.dailyAvg.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td>';
+    row+='<td>¥'+r.projected.toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td>';
+    row+='<td class="increase up">+¥'+Math.abs(r.projectedInc).toLocaleString('zh-CN',{minimumFractionDigits:0})+'</td>';
+    row+='<td>'+(r.hope?'<span class="hope-badge '+hc+'">有望'+hl+'</span>':'—')+'</td>';
+  }
+  row+='<td class="profit-rate '+prCls+'">'+prDisp+'</td><td>'+scoreHtml+'</td></tr>';
+  return row;
+}
+
+function exportCSV(){
+  var scored=results.filter(function(r){return r.score>=100&&(r.profit||0)>3});
+  if(!scored.length){toast('没有可导出的数据');return}
+  var csv='\uFEFF商品ID,商品名称,上月销售额,本月销售额,增量,本月利润率,评分\n';
+  for(var i=0;i<scored.length;i++){
+    var r=scored[i];
+    csv+=r.id+',"'+r.name+'",'+r.prevAmount+','+r.currAmount+','+r.increase+','+(r.profit||0)+'%,'+r.score+'\n';
+  }
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='赛马测算结果.csv';
+  a.click();URL.revokeObjectURL(a.href);toast('CSV 已下载');
+}
+
+function resetAll(){
+  data1=null;data2=null;results=[];file2Days=0;monthTotalDays=0;
+  document.getElementById('name1').textContent='';document.getElementById('name2').textContent='';
+  document.getElementById('card1').classList.remove('loaded');document.getElementById('card2').classList.remove('loaded');
+  document.getElementById('file1').value='';document.getElementById('file2').value='';
+  document.getElementById('btnCompare').disabled=true;document.getElementById('btnExport').disabled=true;
+  document.getElementById('summary').style.display='none';document.getElementById('totalScoreBox').style.display='none';
+  document.getElementById('tableWrap').innerHTML='';toast('已重置');
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+</script>
+</body>
+</html>

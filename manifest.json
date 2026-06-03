@@ -1,0 +1,14 @@
+{
+  "name": "赛马比分测算",
+  "short_name": "赛马测算",
+  "description": "净销售额增量对比工具 — 上传上月和本月 Excel 自动打分",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f5f6fa",
+  "theme_color": "#6c5ce7",
+  "orientation": "portrait-primary",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
